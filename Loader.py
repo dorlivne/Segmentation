@@ -2,8 +2,7 @@ import os
 import tensorflow as tf
 from Augmentations import jitter_image
 
-
-def create_dataset(csv_filename):
+def create_dataset(csv_filename, root_dir):
     image_paths = tf.data.experimental.CsvDataset(filenames=csv_filename, record_defaults=[tf.string, tf.string])
     data_set_raw = []
     data_set_seg = []
@@ -22,16 +21,16 @@ def create_dataset(csv_filename):
     return ans
 
 
-class Loader():
+class Loader:
     """
     Loader class is Used to load train\validation batches of Raw images and Seg images.
     Loader class has the possibility to augment the data.
     """
-    def __init__(self, root_dir=r'Data', batch_size=16):
+    def __init__(self, root_dir='Data', batch_size=16):
         train_csv = os.path.join(root_dir, 'train.csv')
         val_csv = os.path.join(root_dir, 'val.csv')
-        self.train_dataset = create_dataset(train_csv)
-        self.val_dataset = create_dataset(val_csv)
+        self.train_dataset = create_dataset(train_csv, root_dir)
+        self.val_dataset = create_dataset(val_csv, root_dir)
         self.train_dataset = self.train_dataset.repeat(None)  # Repeat dataset indefinetly
         self.val_dataset = self.val_dataset.repeat(None)  # Repeat dataset indefinetly
         self.train_dataset = self._get_train_batch(batch_size=batch_size)
@@ -51,9 +50,12 @@ class Loader():
         for image_batch, seg_batch in multiple_batches:
             yield jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
 
+    def get_one_batch(self):
+        for image_batch, seg_batch in self.train_dataset:
+            return jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
+
 
 if __name__ == '__main__':
-    root_dir = r'Data'
-    loader = Loader(root_dir=root_dir)
+    loader = Loader()
     for batch_raw, batch_seg in loader.get_minibatch():
         a = 5

@@ -24,8 +24,8 @@ def jitter_image(train_batch, train_seg_batch):
         height = IMAGE_HEIGHT
         width = IMAGE_WIDTH
         PLOT = False
-        jitter_images = np.zeros((train_batch.shape[0], height, width))
-        jitter_seg = np.zeros((train_batch.shape[0], height, width))
+        jitter_images = np.zeros((train_batch.shape[0], height, width, 1))
+        jitter_seg = np.zeros((train_batch.shape[0], height, width, 1))
         for i, image in enumerate(train_batch):
                 seg = train_seg_batch[i]
                 if PLOT:
@@ -39,9 +39,9 @@ def jitter_image(train_batch, train_seg_batch):
                 if PLOT:
                     imshow_noax(distorted_image)
                     imshow_noax(distorted_seg)
-                jitter_images[i] = distorted_image
-                jitter_seg[i] = distorted_seg
-        return jitter_images, jitter_seg
+                jitter_images[i] = np.expand_dims(distorted_image,-1)
+                jitter_seg[i] = np.expand_dims(distorted_seg,-1)
+        return jitter_images.astype(np.float32), jitter_seg.astype(np.float32)
 
 
 def elastic_transformation(image, seg, alpha=16, sigma=4, random_state=None):
