@@ -8,6 +8,11 @@ from time import time
 CELL = 1
 
 
+def dist_to_cell(image):
+    tmp = image.numpy()
+    outmap = nd.morphology.distance_transform_edt(tmp)
+    return outmap
+
 
 def loss_fn(seg, predictions):
     weight_map = create_weights(seg)  # per seg
@@ -36,18 +41,16 @@ def create_weights(seg, w0=10, sigma=25, visual=False):
         for uv in range(len(uvals)):
             w_c[class_per_pixel[uv].astype(int)] = wmp[uv]
 
-        s = nd.morphology.generate_binary_structure(2,2)
+        s = nd.morphology.generate_binary_structure(2, 2)
         # extract the cells from seg and cluster each instance
         cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),structure=s)
 
         bwgt = np.zeros_like(curr_seg)
         maps = np.zeros((size[1], size[2], num_features))
         if num_features >= 2:
-            t = time()
             for ci in range(num_features):  # for each instance cell
-                temp = np.array(cells == ci, dtype=bool)
-                temp = temp.astype(dtype=int)
-                maps[:, :, ci] = nd.morphology.distance_transform_edt(1 - temp)  # distance from cell ci for each pixel
+                temp = np.array(cells == ci, dtype=np.float32)
+                maps[:, :, ci] = tf.py_function(dist_to_cell, [tf.convert_to_tensor(1 - temp)], tf.float32)  # distance from cell ci for each pixel
             maps = np.sort(maps, -1)
             d1 = maps[:, :, 0]
             d2 = maps[:, :, 1]
@@ -76,8 +79,10 @@ def expand_segmentations(seg):
 
 
 if __name__ == '__main__':
-     loader = Loader(batch_size=8)
+     #tf.debugging.set_log_device_placement(True)
+     loader = Loader(batch_size=1)
      image, seg = loader.get_one_batch()
      unet_model = unet()
      predictions = unet_model(image)
      a = loss_fn(predictions=predictions, seg=seg)
+     print("hello")
