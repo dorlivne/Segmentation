@@ -1,25 +1,22 @@
 import numpy as np
 import tensorflow as tf
 import scipy.ndimage as nd
-from Loader import Loader
 import matplotlib.pyplot as plt
+"""
+from Loader import Loader
 from model import unet
 from time import time
+"""
 CELL = 1
 
 
-def dist_to_cell(image):
-    tmp = image.numpy()
-    outmap = nd.morphology.distance_transform_edt(tmp)
-    return outmap
+def loss_fn(seg, predictions, weight_map):
 
-
-def loss_fn(seg, predictions):
-    weight_map = create_weights(seg)  # per seg
     seg = expand_segmentations(seg)
     loss_map = tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=seg)
     weighted_loss = tf.multiply(loss_map, weight_map)
-    return tf.reduce_mean(weighted_loss)
+    weighted_loss = tf.reduce_mean(weighted_loss)
+    return weighted_loss
 
 
 def create_weights(seg, w0=10, sigma=25, visual=False):
@@ -43,14 +40,15 @@ def create_weights(seg, w0=10, sigma=25, visual=False):
 
         s = nd.morphology.generate_binary_structure(2, 2)
         # extract the cells from seg and cluster each instance
-        cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),structure=s)
+        cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),
+                                                    structure=s)
 
         bwgt = np.zeros_like(curr_seg)
         maps = np.zeros((size[1], size[2], num_features))
         if num_features >= 2:
             for ci in range(num_features):  # for each instance cell
                 temp = np.array(cells == ci, dtype=np.float32)
-                maps[:, :, ci] = tf.py_function(dist_to_cell, [tf.convert_to_tensor(1 - temp)], tf.float32)  # distance from cell ci for each pixel
+                maps[:, :, ci] = nd.morphology.distance_transform_edt(1-temp)
             maps = np.sort(maps, -1)
             d1 = maps[:, :, 0]
             d2 = maps[:, :, 1]
@@ -70,8 +68,8 @@ def create_weights(seg, w0=10, sigma=25, visual=False):
 
 
 def expand_segmentations(seg):
-    SIZE = np.shape(seg)
-    expand_seg = np.zeros((SIZE[0], SIZE[1], SIZE[2], 3))
+    size = np.shape(seg)
+    expand_seg = np.zeros((size[0], size[1], size[2], 3))
     expand_seg[:, :, :, 0] = seg[:, :, :, 0] == 0
     expand_seg[:, :, :, 1] = seg[:, :, :, 0] == 1
     expand_seg[:, :, :, 2] = seg[:, :, :, 0] == 2
@@ -79,6 +77,7 @@ def expand_segmentations(seg):
 
 
 if __name__ == '__main__':
+     """
      #tf.debugging.set_log_device_placement(True)
      loader = Loader(batch_size=1)
      image, seg = loader.get_one_batch()
@@ -86,3 +85,4 @@ if __name__ == '__main__':
      predictions = unet_model(image)
      a = loss_fn(predictions=predictions, seg=seg)
      print("hello")
+     """

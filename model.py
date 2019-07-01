@@ -80,7 +80,7 @@ def unet(pretrained_weights=None, input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
     conv5 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv5)
 
     conv6 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv5)
-    conv7 = Conv2D(3, 1, activation='relu')(conv6)
+    conv7 = Conv2D(3, 1)(conv6)
 
     model = Model(inputs=inputs, outputs=conv7)
     if pretrained_weights:
