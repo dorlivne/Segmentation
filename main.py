@@ -7,8 +7,7 @@ from tensorflow.python.keras import callbacks
 from configs import config
 import numpy as np
 import os
-from multiprocessing import Process, Queue
-from utils.custom_utils import extract_weight_map, Jaccard_Index
+from utils.custom_utils import Jaccard_Index
 from argparse import ArgumentParser
 FLAGS = 0
 
@@ -16,48 +15,57 @@ FLAGS = 0
 def validation(net: Model, loader: Loader):
     val_accuracy = []
     loss = []
-    queue_seg = Queue(maxsize=1)
-    queue_weightmap = Queue(maxsize=1)
-    p = Process(target=extract_weight_map, args=(queue_seg, queue_weightmap))
-    p.start()
+    #queue_seg = Queue(maxsize=1)
+    #queue_weightmap = Queue(maxsize=1)
+    #p = Process(target=extract_weight_map, args=(queue_seg, queue_weightmap))
+    #p.start()
     for i, (image_batch, seg_batch) in enumerate(loader.get_minibatch(train=False)):
-        queue_seg.put(seg_batch)
+        #queue_seg.put(seg_batch)
         pred = net(image_batch)
-        weight_map = queue_weightmap.get()
-        loss.append(loss_fn(seg=seg_batch, predictions=pred, weight_map=weight_map))
+        #weight_map = queue_weightmap.get()
+        loss.append(loss_fn(seg=seg_batch, predictions=pred))
         val_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch))
         if i == config.validation_steps:
-            queue_seg.put(False)
+            #queue_seg.put(False)
             return np.mean(val_accuracy), np.mean(loss)
+
+
+def grad(model:Model, inputs, targets):
+    with tf.GradientTape() as tape:
+        pred = model(inputs)
+        loss_value = loss_fn(seg=targets, predictions=pred)
+    return loss_value, tape.gradient(loss_value, model.trainable_variables), pred
 
 
 def train(net: Model, optimizer: tf.compat.v2.optimizers, loader: Loader):
     if not os.path.exists(config.log_dir):
         os.makedirs(config.log_dir)
-    queue_seg = Queue()
-    queue_weightmap = Queue()
-    p = Process(target=extract_weight_map, args=(queue_seg, queue_weightmap,))
-    p.start()
+    #queue_seg = Queue()
+    #queue_weightmap = Queue()
+    #p = Process(target=extract_weight_map, args=(queue_seg, queue_weightmap,))
+    #p.start()
     Tensorcallback = callbacks.TensorBoard(config.log_dir,
                                            write_graph=False, write_images=False)
     Checkpoint = callbacks.ModelCheckpoint(filepath=FLAGS.model_path, monitor='val_acc', mode='max')
     Checkpoint.set_model(net)
     Tensorcallback.set_model(net)
     best_val_acc = 0
+    global_step = 0
     consecutive_trials_val_acc_unchanged = 0
     for epoch in range(FLAGS.epochs):
         train_accuracy = []
         train_loss = []
         for iteration, (image_batch, seg_batch) in enumerate(loader.get_minibatch()):
-            queue_seg.put(seg_batch)
+            #queue_seg.put(seg_batch)
             with tf.GradientTape() as tape:
                 pred = net(image_batch)
-                weight_map = queue_weightmap.get()
-                train_loss.append(loss_fn(seg_batch, pred, weight_map=weight_map))
+                #weight_map = queue_weightmap.get()
+                train_loss.append(loss_fn(seg_batch, pred))
                 train_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch))
-            optimizer.learning_rate = config.learning_rate_schedulere(epoch)
+            optimizer.learning_rate = config.learning_rate_scheduler(epoch)
             grads = tape.gradient(train_loss[-1], net.trainable_variables)
             optimizer.apply_gradients(zip(grads, net.trainable_variables))
+            global_step = global_step + 1
             if iteration == config.steps_per_epoch:
                 break
         train_loss_mean = np.mean(train_loss)
@@ -80,8 +88,8 @@ def train(net: Model, optimizer: tf.compat.v2.optimizers, loader: Loader):
                   .format(epoch, FLAGS.epochs))
             break
     Tensorcallback.on_train_end('_')
-    queue_seg.put(False)
-    p.join()
+    #queue_seg.put(False)
+    #p.join()
 
 
 if __name__ == '__main__':

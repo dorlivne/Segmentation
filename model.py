@@ -52,6 +52,7 @@ def unet(pretrained_weights=None, input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
     return model
 """
 
+
 def unet(pretrained_weights=None, input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
     inputs = Input(input_size)
 
@@ -65,10 +66,10 @@ def unet(pretrained_weights=None, input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
 
     conv3 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool2)
     conv3 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv3)
-    drop3 = Dropout(0.5)(conv3)
+    #drop3 = Dropout(0.5)(conv3)
 
     up4 = Conv2D(64, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
-        UpSampling2D(size=(2, 2))(drop3))
+        UpSampling2D(size=(2, 2))(conv3))
     merge4 = concatenate([conv2, up4], axis=3)
     conv4 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge4)
     conv4 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv4)
@@ -76,11 +77,10 @@ def unet(pretrained_weights=None, input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
     up5 = Conv2D(32, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
         UpSampling2D(size=(2, 2))(conv4))
     merge5 = concatenate([conv1, up5], axis=3)
-    conv5 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge5)
-    conv5 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv5)
-
-    conv6 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv5)
-    conv7 = Conv2D(3, 1)(conv6)
+    conv5 = Conv2D(32, 3, padding='same', kernel_initializer='he_normal')(merge5)
+    conv5 = Conv2D(32, 3, padding='same', kernel_initializer='he_normal')(conv5)
+    conv6 = Conv2D(2, 3, padding='same', kernel_initializer='he_normal')(conv5)
+    conv7 = Conv2D(3, 1, )(conv6)
 
     model = Model(inputs=inputs, outputs=conv7)
     if pretrained_weights:
