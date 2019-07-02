@@ -1,6 +1,6 @@
 import os
 import tensorflow as tf
-from Augmentations import jitter_image
+from Augmentations import jitter_image, np
 
 def create_dataset(csv_filename, root_dir):
     image_paths = tf.data.experimental.CsvDataset(filenames=csv_filename, record_defaults=[tf.string, tf.string])

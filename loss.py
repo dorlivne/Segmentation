@@ -10,16 +10,16 @@ from time import time
 CELL = 1
 
 
-def loss_fn(seg, predictions, weight_map):
-
+def loss_fn(seg, predictions, weight_map=None):
+    weight_map = weight_map if weight_map is not None else create_weights(seg=seg)
     seg = expand_segmentations(seg)
     loss_map = tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=seg)
     weighted_loss = tf.multiply(loss_map, weight_map)
-    weighted_loss = tf.reduce_mean(weighted_loss)
+    weighted_loss = tf.reduce_sum(weighted_loss) / np.shape(seg)[0]
     return weighted_loss
 
 
-def create_weights(seg, w0=10, sigma=25, visual=False):
+def create_weights(seg, w0=10, sigma=4, visual=False):
     size = np.shape(seg)
     batch_size = size[0]
     weight_map = np.zeros_like(seg)
@@ -36,13 +36,13 @@ def create_weights(seg, w0=10, sigma=25, visual=False):
         w_c = np.zeros_like(curr_seg)
 
         for uv in range(len(uvals)):
-            w_c[class_per_pixel[uv].astype(int)] = wmp[uv]
-
+            w_c[class_per_pixel[uv].astype(int) == 1] = wmp[uv]
+        """
         s = nd.morphology.generate_binary_structure(2, 2)
         # extract the cells from seg and cluster each instance
         cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),
                                                     structure=s)
-
+      
         bwgt = np.zeros_like(curr_seg)
         maps = np.zeros((size[1], size[2], num_features))
         if num_features >= 2:
@@ -52,15 +52,15 @@ def create_weights(seg, w0=10, sigma=25, visual=False):
             maps = np.sort(maps, -1)
             d1 = maps[:, :, 0]
             d2 = maps[:, :, 1]
-            bwgt = w0 * np.exp(-(np.square(d1 + d2))/(2 * sigma))
-            bwgt = np.multiply(bwgt, cells == 0)
-        weight_map[i, :, :, 0] = w_c + bwgt
+            bwgt = w0 * np.exp(-(np.square(d1 + d2)) / (2 * sigma))
+        """
+        weight_map[i, :, :, 0] = w_c
         if visual:
             plt.subplot(1, 2, 1)
             plt.imshow(curr_seg)
             plt.colorbar()
             plt.subplot(1, 2, 2)
-            plt.imshow(weight_map[i, :, :, 0])
+            plt.imshow(weight_map.squeeze())
             plt.colorbar()
             plt.show()
 
@@ -77,12 +77,12 @@ def expand_segmentations(seg):
 
 
 if __name__ == '__main__':
-    """
-    #tf.debugging.set_log_device_placement(True)
-    loader = Loader(batch_size=1)
-    image, seg = loader.get_one_batch()
-    unet_model = unet()
-    predictions = unet_model(image)
-    a = loss_fn(predictions=predictions, seg=seg)
-    print("hello")
-    """
+     """
+     #tf.debugging.set_log_device_placement(True)
+     loader = Loader(batch_size=1)
+     image, seg = loader.get_one_batch()
+     unet_model = unet()
+     predictions = unet_model(image)
+     a = loss_fn(predictions=predictions, seg=seg)
+     print("hello")
+     """
