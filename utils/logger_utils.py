@@ -22,3 +22,8 @@ def get_logger(name: str):
     fh.setFormatter(fh_format)
     logger.addHandler(fh)
     return logger
+
+
+def info(string, logger):
+    print(string)
+    logger.info(string)

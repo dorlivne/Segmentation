@@ -1,11 +1,7 @@
-from loss import create_weights, tf
+import tensorflow as tf
+from Augmentations import IMAGE_HEIGHT, IMAGE_WIDTH
 import numpy as np
 import matplotlib.pyplot as plt
-
-def extract_weight_map(queue_seg, queue_weightmap):
-    seg = queue_seg.get()
-    queue_weightmap.put(create_weights(seg=seg))
-    extract_weight_map(queue_seg, queue_weightmap)
 
 
 # TODO implement this function
@@ -33,3 +29,31 @@ def Jaccard_Index(gt_batch, output_batch, channel_axis=-1, foreground_class_inde
         plt.show()
 
     return seg_measure
+
+
+def is_whole(num):
+    return num % 1 == 0
+
+
+def crop(image_batch, num_of_sub_pictures=2):
+    sub_image_width = IMAGE_WIDTH / num_of_sub_pictures
+    sub_image_height = IMAGE_HEIGHT / num_of_sub_pictures
+    assert is_whole(sub_image_width)
+    assert is_whole(sub_image_height)
+    batch_size = np.shape(image_batch)[0]
+    sub_image_width = int(sub_image_width)
+    sub_image_height = int(sub_image_height)
+    sub_images = np.zeros(batch_size, (num_of_sub_pictures ** 2, sub_image_height, sub_image_width))
+    height_pixel_offset = 0
+    width_pixel_offset = 0
+    for i in range(num_of_sub_pictures):
+        for j in range(num_of_sub_pictures):
+            sub_images[:, j + 2 * i, :, :] = image_batch[:, height_pixel_offset: height_pixel_offset + sub_image_height,
+                                          width_pixel_offset: width_pixel_offset + sub_image_width]
+            width_pixel_offset = width_pixel_offset + sub_image_width
+        height_pixel_offset = height_pixel_offset + sub_image_height
+
+        width_pixel_offset = 0
+    return sub_images
+
+
