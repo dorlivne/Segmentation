@@ -44,7 +44,7 @@ def jitter_image(train_batch, train_seg_batch):
         return jitter_images.astype(np.float32), jitter_seg.astype(np.float32)
 
 
-def elastic_transformation(image, seg, alpha=16, sigma=4, random_state=None):
+def elastic_transformation(image, seg, alpha=np.random.random(1)*10, sigma=4, random_state=None):
         """Elastic deformation of images as described in [Simard2003]_.
          .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
             Convolutional Neural Networks applied to Visual Document Analysis", in
