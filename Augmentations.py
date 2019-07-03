@@ -3,7 +3,7 @@ from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
 import random
 import matplotlib.pyplot as plt
-
+from configs import config
 
 IMAGE_HEIGHT = 512
 IMAGE_WIDTH = 640
@@ -31,7 +31,11 @@ def jitter_image(train_batch, train_seg_batch):
                 if PLOT:
                     imshow_noax(image.squeeze())
                     imshow_noax(seg.squeeze())
-                transformed_image, transformed_seg = elastic_transformation(image=image.squeeze(), seg=seg.squeeze())
+                if random.random() < config.elastic_threshold:
+                    transformed_image, transformed_seg = elastic_transformation(image=image.squeeze(), seg=seg.squeeze())
+                else:
+                    transformed_image = image.squeeze()
+                    transformed_seg = seg.squeeze()
                 if PLOT:
                     imshow_noax(transformed_image)
                     imshow_noax(transformed_seg)

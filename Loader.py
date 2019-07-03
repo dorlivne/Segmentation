@@ -1,6 +1,8 @@
 import os
 import tensorflow as tf
-from Augmentations import jitter_image
+from Augmentations import jitter_image, imshow_noax, IMAGE_HEIGHT, IMAGE_WIDTH
+import numpy as np
+
 
 def create_dataset(csv_filename, root_dir):
     image_paths = tf.data.experimental.CsvDataset(filenames=csv_filename, record_defaults=[tf.string, tf.string])
@@ -19,6 +21,7 @@ def create_dataset(csv_filename, root_dir):
         data_set_seg.append(seg_image)
     ans = tf.data.Dataset.from_tensor_slices((data_set_raw, data_set_seg))
     return ans
+
 
 
 class Loader:
@@ -42,13 +45,17 @@ class Loader:
     def _get_val_batch(self, batch_size=2):
         return self.val_dataset.batch(batch_size=batch_size)
 
-    def get_minibatch(self, train=True):
+    def get_minibatch(self, train=True, Aug=True):
         if train:
             multiple_batches = self.train_dataset
         else:
             multiple_batches = self.val_dataset
-        for image_batch, seg_batch in multiple_batches:
-            yield jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
+        if Aug:
+            for image_batch, seg_batch in multiple_batches:
+                yield jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
+        else:
+            for image_batch, seg_batch in multiple_batches:
+                yield tf.cast(image_batch, tf.float32).numpy(), tf.cast(seg_batch, tf.float32).numpy()
 
     def get_one_batch(self):
         for image_batch, seg_batch in self.train_dataset:
@@ -57,5 +64,7 @@ class Loader:
 
 if __name__ == '__main__':
     loader = Loader()
-    for batch_raw, batch_seg in loader.get_minibatch():
-        a = 5
+    with tf.device('/cpu:0'):
+        for batch_raw, batch_seg in loader.get_minibatch(Aug=False):
+            crop(img=batch_seg[0].squeeze())
+            a = 5
