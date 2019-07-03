@@ -1,10 +1,11 @@
 import os
 import tensorflow as tf
-from Augmentations import jitter_image, imshow_noax, IMAGE_HEIGHT, IMAGE_WIDTH
-import numpy as np
-
+from Augmentations import jitter_image
 
 def create_dataset(csv_filename, root_dir):
+    """
+    create a tensorflow dataset from csv files
+    """
     image_paths = tf.data.experimental.CsvDataset(filenames=csv_filename, record_defaults=[tf.string, tf.string])
     data_set_raw = []
     data_set_seg = []
@@ -21,7 +22,6 @@ def create_dataset(csv_filename, root_dir):
         data_set_seg.append(seg_image)
     ans = tf.data.Dataset.from_tensor_slices((data_set_raw, data_set_seg))
     return ans
-
 
 
 class Loader:
@@ -61,10 +61,3 @@ class Loader:
         for image_batch, seg_batch in self.train_dataset:
             return jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
 
-
-if __name__ == '__main__':
-    loader = Loader()
-    with tf.device('/cpu:0'):
-        for batch_raw, batch_seg in loader.get_minibatch(Aug=False):
-            crop(img=batch_seg[0].squeeze())
-            a = 5

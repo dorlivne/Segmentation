@@ -1,7 +1,8 @@
 
 
 class config:
-    batch_size = 8
+    # some parameters and thresholds
+    batch_size = 1
     epochs = 400
     steps_per_epoch = 9
     validation_steps = 4  # iteration is from zero there is actually 5 steps each val/train epoch
@@ -11,17 +12,18 @@ class config:
     stop = False
     alpha = 16
     sigma = 4
-    converged_threshold = 20
+    converged_threshold = 30
     Augment = True
     elastic_threshold = 0.0
+    mirror_threshold = 0.0
 
     @staticmethod
     def learning_rate_scheduler(epoch: int):
-        if epoch <= 100:
+        if epoch <= 20:
             return 1e-3
-        elif 100 < epoch <= 125:
+        elif 20 < epoch <= 100:
             return 5e-4
-        elif 125 < epoch <= 150:
+        elif 100 < epoch <= 150:
             return 1e-4
         elif 150 < epoch <= 200:
             return 5e-5

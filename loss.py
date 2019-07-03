@@ -10,8 +10,12 @@ from time import time
 CELL = 1
 
 
-def loss_fn(seg, predictions,epoch, weight_map=None):
-    weight_map = weight_map if weight_map is not None else create_weights(seg=seg, epoch=epoch)
+def loss_fn(seg, predictions, weight_map=None):
+    """
+    loss function according to the Assignment PDF
+    with the use of weights as depicted in the Unet paper
+    """
+    weight_map = weight_map if weight_map is not None else create_weights(seg=seg)
     seg = expand_segmentations(seg)
     loss_map = tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=seg)
     weighted_loss = tf.multiply(loss_map, weight_map)
@@ -20,7 +24,12 @@ def loss_fn(seg, predictions,epoch, weight_map=None):
     return weighted_loss
 
 
-def create_weights(seg,epoch, w0=5, sigma=16, visual=False):
+def create_weights(seg, w0=5, sigma=16, visual=False):
+    """
+    create weights for the loss function
+    where w_c is the frequency of each class in the seg
+    and bwgt are the weights that mark the border between the adjacent cells
+    """
     size = np.shape(seg)
     batch_size = size[0]
     weight_map = np.zeros_like(seg)
@@ -78,14 +87,3 @@ def expand_segmentations(seg):
     expand_seg[:, :, :, 2] = seg[:, :, :, 0] == 2
     return expand_seg
 
-
-if __name__ == '__main__':
-     """
-     #tf.debugging.set_log_device_placement(True)
-     loader = Loader(batch_size=1)
-     image, seg = loader.get_one_batch()
-     unet_model = unet()
-     predictions = unet_model(image)
-     a = loss_fn(predictions=predictions, seg=seg)
-     print("hello")
-     """

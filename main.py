@@ -1,5 +1,5 @@
 from Loader import Loader
-from model import Unet
+from model import Unet, TilesUnet, TilesUnetMirrored
 from loss import loss_fn
 import tensorflow as tf
 from tensorflow.python.keras import callbacks
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         help='pre trained model path.')
     FLAGS, unparsed = parser.parse_known_args()
 
-    Net_OOP = Unet()
+    Net_OOP = TilesUnetMirrored()
     optimizer = tf.compat.v2.optimizers.Adam(beta_1=0.99)
     loader = Loader(batch_size=FLAGS.batch_size)
     Net_OOP.compile(optimizer=optimizer, loss=loss_fn, metrics=['acc', 'loss', 'val_acc', 'val_loss'])
