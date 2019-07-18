@@ -43,12 +43,12 @@ def jitter_image(train_batch, train_seg_batch):
                 if PLOT:
                     imshow_noax(distorted_image)
                     imshow_noax(distorted_seg)
-                jitter_images[i] = np.expand_dims(distorted_image,-1)
-                jitter_seg[i] = np.expand_dims(distorted_seg,-1)
+                jitter_images[i] = np.expand_dims(distorted_image, -1)
+                jitter_seg[i] = np.expand_dims(distorted_seg, -1)
         return jitter_images.astype(np.float32), jitter_seg.astype(np.float32)
 
 
-def elastic_transformation(image, seg, alpha=np.random.random(1)*10, sigma=4, random_state=None):
+def elastic_transformation(image, seg, alpha=np.random.random(1)*8, sigma=8, random_state=None):
         """Elastic deformation of images as described in [Simard2003]_.
          .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
             Convolutional Neural Networks applied to Visual Document Analysis", in

@@ -1,6 +1,9 @@
 import os
 import tensorflow as tf
 from Augmentations import jitter_image
+from random import random
+from configs import config
+
 
 def create_dataset(csv_filename, root_dir):
     """
@@ -45,7 +48,7 @@ class Loader:
     def _get_val_batch(self, batch_size=2):
         return self.val_dataset.batch(batch_size=batch_size)
 
-    def get_minibatch(self, train=True, Aug=True):
+    def get_minibatch(self, train=True, Aug=config.Augment):
         if train:
             multiple_batches = self.train_dataset
         else:
@@ -55,7 +58,11 @@ class Loader:
                 yield jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
         else:
             for image_batch, seg_batch in multiple_batches:
-                yield tf.cast(image_batch, tf.float32).numpy(), tf.cast(seg_batch, tf.float32).numpy()
+                randomVariable = random()
+                if randomVariable > 0.5 or not train:
+                    yield tf.cast(image_batch, tf.float32).numpy(), tf.cast(seg_batch, tf.float32).numpy()
+                else:
+                    yield jitter_image(train_batch=image_batch.numpy(), train_seg_batch=seg_batch.numpy())
 
     def get_one_batch(self):
         for image_batch, seg_batch in self.train_dataset:

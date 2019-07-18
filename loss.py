@@ -19,7 +19,6 @@ def loss_fn(seg, predictions, weight_map=None):
     seg = expand_segmentations(seg)
     loss_map = tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=seg)
     weighted_loss = tf.multiply(loss_map, weight_map)
-    #weighted_loss = tf.multiply(loss_map, 1)
     weighted_loss = tf.reduce_sum(weighted_loss) / np.shape(seg)[0]
     return weighted_loss
 
@@ -49,23 +48,21 @@ def create_weights(seg, w0=5, sigma=16, visual=False):
             w_c[class_per_pixel[uv].astype(int) == 1] = wmp[uv]
         bwgt = 0
         """
-        if epoch >= 0:
-            s = nd.morphology.generate_binary_structure(2, 2)
-            # extract the cells from seg and cluster each instance
-            cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),
-                                                        structure=s)
-            bwgt = np.zeros_like(curr_seg)
-            maps = np.zeros((size[1], size[2], num_features))
-            if num_features >= 2:
-                for ci in range(1, num_features + 1):  # for each instance cell
-                    temp = np.array(cells == ci, dtype=np.float32)
-                    maps[:, :, ci-1] = nd.morphology.distance_transform_edt(1-temp)
-                maps = np.sort(maps, -1)
-                d1 = maps[:, :, 0]
-                d2 = maps[:, :, 1]
-                bwgt = w0 * np.exp(-(np.square(d1 + d2)) / (2 * sigma))
-    `   """
-        #bwgt = w0 * class_per_pixel[2]
+        s = nd.morphology.generate_binary_structure(2, 2)
+        # extract the cells from seg and cluster each instance
+        cells, num_features = nd.measurements.label(input=nd.binary_opening(class_per_pixel[CELL]).astype(int),
+                                                    structure=s)
+        bwgt = np.zeros_like(curr_seg)
+        maps = np.zeros((size[1], size[2], num_features))
+        if num_features >= 2:
+            for ci in range(1, num_features + 1):  # for each instance cell
+                temp = np.array(cells == ci, dtype=np.float32)
+                maps[:, :, ci-1] = nd.morphology.distance_transform_edt(1-temp)
+            maps = np.sort(maps, -1)
+            d1 = maps[:, :, 0]
+            d2 = maps[:, :, 1]
+            bwgt = w0 * np.exp(-(np.square(d1 + d2)) / (2 * sigma))
+        """
         weight_map[i, :, :, 0] = w_c + bwgt
         if visual:
             plt.subplot(1, 2, 1)

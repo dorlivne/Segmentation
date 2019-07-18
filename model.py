@@ -8,6 +8,14 @@ from Loader import Loader
 from utils.logger_utils import info
 from configs import config
 import random
+from SegMeasure import SegMeasure
+import matplotlib.pyplot as plt
+
+def mirror_image(image_batch, seg_batch, divide_by=2):
+    #  we randomly insert mirrored cropped images to the dataset
+    mirrored_and_cropped_images = crop_and_mirror(image_batch=image_batch, num_of_sub_pictures=divide_by)
+    mirrored_and_cropped_seg = crop_and_mirror(image_batch=seg_batch, num_of_sub_pictures=divide_by)
+    return mirrored_and_cropped_images, mirrored_and_cropped_seg
 
 
 def conv2D_BN_Relu(inputs, channel_Num, filter_size):
@@ -56,28 +64,29 @@ def unet(input_size=(IMAGE_HEIGHT, IMAGE_WIDTH, 1)):
     :param input_size: the inputs size to the network
     :return: a Keras model module
     """
+    SizeMultiplier = 1
     inputs = Input(input_size)
-    conv1 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
-    conv1 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer= 'he_normal')(conv1)
+    conv1 = Conv2D(32*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
+    conv1 = Conv2D(32*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer= 'he_normal')(conv1)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    conv2 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool1)
-    conv2 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv2)
+    conv2 = Conv2D(64*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool1)
+    conv2 = Conv2D(64*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv2)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    conv3 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool2)
-    conv3 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv3)
-    up4 = Conv2D(64, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+    conv3 = Conv2D(128*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool2)
+    conv3 = Conv2D(128*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv3)
+    up4 = Conv2D(64*SizeMultiplier, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
         UpSampling2D(size=(2, 2))(conv3))
     merge4 = concatenate([conv2, up4], axis=3)
-    conv4 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge4)
-    conv4 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv4)
+    conv4 = Conv2D(64*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge4)
+    conv4 = Conv2D(64*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv4)
 
-    up5 = Conv2D(32, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+    up5 = Conv2D(32*SizeMultiplier, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
         UpSampling2D(size=(2, 2))(conv4))
     merge5 = concatenate([conv1, up5], axis=3)
-    conv5 = Conv2D(32, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge5)
-    conv5 = Conv2D(32, 3, padding='same', kernel_initializer='he_normal')(conv5)
+    conv5 = Conv2D(32*SizeMultiplier, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge5)
+    conv5 = Conv2D(32*SizeMultiplier, 3, padding='same', kernel_initializer='he_normal')(conv5)
     conv6 = Conv2D(2, 3, padding='same', kernel_initializer='he_normal')(conv5)
     conv7 = Conv2D(3, 1, )(conv6)
 
@@ -118,7 +127,7 @@ class Unet(tf.keras.Model):
         self.optimizer = optimizer
         self.loss = loss
 
-    def _train_on_batch(self, image_batch, seg_batch):
+    def _train_on_batch(self, image_batch, seg_batch, visual=False):
         """
         private function to train on batches
         :param image_batch: image batch of raw segmentation
@@ -130,12 +139,26 @@ class Unet(tf.keras.Model):
         with tf.GradientTape() as tape:
             pred = self(image_batch)
             train_loss = self.loss(seg_batch, pred)
-            train_accuracy = Jaccard_Index(output_batch=pred, gt_batch=seg_batch, visual=False)
+            if config.use_assaf:
+                seg_measure = SegMeasure()
+                train_accuracy = seg_measure(gt=seg_batch, net_output=pred)
+            else:
+                train_accuracy = Jaccard_Index(output_batch=pred, gt_batch=seg_batch, visual=visual)
         grads = tape.gradient(train_loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        if visual:
+            plt.subplot(1, 2, 1)
+            plt.imshow(np.squeeze(seg_batch[0]))
+            # plt.colorbar()
+            plt.title("segmentation")
+            plt.subplot(1, 2, 2)
+            plt.imshow(np.squeeze( pred[0]))
+            plt.title("prediction segmentation")
+            # plt.colorbar()
+            plt.show()
         return train_accuracy, train_loss
 
-    def fit(self, logger, loader: Loader, callbacks, epochs:int, steps_per_epoch:int,
+    def fit(self, logger, loader: Loader, callbacks, epochs:int, steps_per_epoch: int,
             val_freq=2, val_steps=4):
         """
         training loop that trains the model and controls the augmentation, learning rate and the mirroring capability.
@@ -157,15 +180,20 @@ class Unet(tf.keras.Model):
         best_val_acc = 0
         consecutive_trials_val_acc_unchanged = 0
         for epoch in range(epochs):
-            if best_val_acc > 0.7:   # a threshold for Curriculum learning
-                config.elastic_threshold = 0.5  # for the use of elastic threshold
-            if best_val_acc > 0.6:
+            if config.Augment:
+                if best_val_acc > 0.7:   # a threshold for Curriculum learning
+                    config.elastic_threshold = min(0.5, 1 * epoch / epochs)  # for the use of elastic threshold
+                if best_val_acc > 0.65:
+                    config.mirror_threshold = min(0.5, 1 * epoch / epochs)  # for the use of mirroring
+            elif epoch <= 1:  # insert randomly augmented images
                 config.mirror_threshold = 0.5  # for the use of mirroring
+                config.elastic_threshold = 0.5  # for the use of elastic threshold
             train_accuracy = []
             train_loss = []
             self.optimizer.learning_rate = config.learning_rate_scheduler(epoch)  # learning rate scheduler
             for iteration, (image_batch, seg_batch) in enumerate(loader.get_minibatch(Aug=config.Augment)):
-                acc_val, loss_val = self._train_on_batch(image_batch=image_batch, seg_batch=seg_batch)
+                acc_val, loss_val = self._train_on_batch(image_batch=image_batch, seg_batch=seg_batch,
+                                                         visual=epoch % 5 == 0 and config.visual)
                 train_accuracy.append(acc_val)
                 train_loss.append(loss_val)
                 if iteration == steps_per_epoch:
@@ -201,23 +229,42 @@ class Unet(tf.keras.Model):
             :param loader: generator of data
             :return: mean of accuracy and loss
             """
+            seg_measure = SegMeasure()
             val_accuracy = []
             loss = []
-            for i, (image_batch, seg_batch) in enumerate(loader.get_minibatch(train=False)):
+            for i, (image_batch, seg_batch) in enumerate(loader.get_minibatch(train=False, Aug=config.Augment)):
                 pred = self.call(image_batch.astype(np.float32), training=False)
                 loss.append(self.loss(seg=seg_batch.astype(np.float32), predictions=pred))
-                val_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch, visual=False))
+                if config.use_assaf:
+                    val_accuracy.append(seg_measure(gt=seg_batch, net_output=pred))
+                else:
+                    val_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch))
+
                 if i == config.validation_steps:
                     return np.mean(val_accuracy), np.mean(loss)
 
-    def evaluation(self, loader: Loader, epochs:int, imshow=True):
+    def evaluation(self, loader: Loader, epochs: int, imshow=False):
         # for debugging purposes
+        val_accuracy = []
+        loss = []
+        for i, (image_batch, seg_batch) in enumerate(loader.get_minibatch(train=False, Aug=False)):
+            pred = self.call(image_batch.astype(np.float32), training=False)
+            loss.append(self.loss(seg=seg_batch.astype(np.float32), predictions=pred))
+            val_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch, visual=imshow))
+            if i == epochs:
+                return np.mean(val_accuracy), np.mean(loss)
+
+
+
+    def evaluation_with_assaf(self, loader: Loader, epochs:int, imshow=True):
+        # for debugging purposes
+        seg_measure = SegMeasure()
         val_accuracy = []
         loss = []
         for i, (image_batch, seg_batch) in enumerate(loader.get_minibatch(train=False)):
             pred = self.call(image_batch.astype(np.float32), training=False)
             loss.append(self.loss(seg=seg_batch.astype(np.float32), predictions=pred))
-            val_accuracy.append(Jaccard_Index(output_batch=pred, gt_batch=seg_batch, visual=imshow))
+            val_accuracy.append(seg_measure(seg_batch, pred).numpy())
             if i == epochs:
                 return np.mean(val_accuracy), np.mean(loss)
 
@@ -254,7 +301,7 @@ class TilesUnet(Unet):
 
             return prediction
 
-    def _train_on_batch(self, image_batch, seg_batch):
+    def _train_on_batch(self, image_batch, seg_batch, visual):
         sub_image = crop(image_batch=image_batch) # crop function is used to divide the image to tiles
         sub_seg = crop(image_batch=seg_batch)
         train_acc = []
@@ -263,7 +310,7 @@ class TilesUnet(Unet):
                 for j in range(self.divide_by):  # width
                     train_acc_val, train_loss_val = super(TilesUnet, self).\
                         _train_on_batch(image_batch=sub_image[:, j + 2 * i, :, :],
-                                        seg_batch=sub_seg[:, j + 2 * i, :, :])
+                                        seg_batch=sub_seg[:, j + 2 * i, :, :], visual=visual)
                     train_acc.append(train_acc_val)
                     train_lost.append(train_loss_val)
         return np.mean(train_acc), np.mean(train_lost)
@@ -279,12 +326,13 @@ class TilesUnetMirrored(Unet):
         self.input_size = input_size
         self.divide_by = int(np.sqrt(number_of_tiles))
 
-    def _train_on_batch(self, image_batch, seg_batch):
+    def _train_on_batch(self, image_batch, seg_batch, visual):
         mirror = False
         if random.random() < config.mirror_threshold:
             #  we randomly insert mirrored cropped images to the dataset
-            mirrored_and_cropped_images = crop_and_mirror(image_batch=image_batch, num_of_sub_pictures=self.divide_by)
-            mirrored_and_cropped_seg = crop_and_mirror(image_batch=seg_batch, num_of_sub_pictures=self.divide_by)
+            mirrored_and_cropped_images, mirrored_and_cropped_seg = mirror_image(image_batch=image_batch,
+                                                                                 seg_batch=seg_batch,
+                                                                                 divide_by=self.divide_by)
             mirror = True
         train_acc = []
         train_lost = []
@@ -293,11 +341,11 @@ class TilesUnetMirrored(Unet):
                 if mirror:
                     train_acc_val, train_loss_val = super(TilesUnetMirrored, self). \
                         _train_on_batch(image_batch=mirrored_and_cropped_images[:, j + 2 * i, :, :],
-                                        seg_batch=mirrored_and_cropped_seg[:, j + 2 * i, :, :])
+                                        seg_batch=mirrored_and_cropped_seg[:, j + 2 * i, :, :], visual=visual)
                 else:
                     train_acc_val, train_loss_val = super(TilesUnetMirrored, self). \
                         _train_on_batch(image_batch=image_batch.astype(np.float32),
-                                        seg_batch=seg_batch.astype(np.float32))
+                                        seg_batch=seg_batch.astype(np.float32), visual=visual)
                 train_acc.append(train_acc_val)
                 train_lost.append(train_loss_val)
         return np.mean(train_acc), np.mean(train_lost)

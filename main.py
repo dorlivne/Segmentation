@@ -110,9 +110,21 @@ if __name__ == '__main__':
         type=str,
         default=None,
         help='pre trained model path.')
+    parser.add_argument(
+        '--aug',
+        type=bool,
+        default=False,
+        help='Augment using CL if True else randomly augment images through the traininig procedure.')
+    parser.add_argument(
+        '--assaf',
+        type=bool,
+        default=True,
+        help='use assaf measure')
     FLAGS, unparsed = parser.parse_known_args()
-
     Net_OOP = TilesUnetMirrored()
+    config.Augment = FLAGS.aug
+    config.use_assaf = FLAGS.assaf
+    print("Augment is : {}".format(int(config.Augment)))
     optimizer = tf.compat.v2.optimizers.Adam(beta_1=0.99)
     loader = Loader(batch_size=FLAGS.batch_size)
     Net_OOP.compile(optimizer=optimizer, loss=loss_fn, metrics=['acc', 'loss', 'val_acc', 'val_loss'])
@@ -128,6 +140,6 @@ if __name__ == '__main__':
     Checkpoint.set_model(Net_OOP)
     Tensorcallback.set_model(Net_OOP)
     callbacks = {'tensorboard': Tensorcallback, 'checkpoint': Checkpoint}
-    Net_OOP.fit(logger=logger, callbacks=callbacks,epochs=FLAGS.epochs, steps_per_epoch=config.steps_per_epoch,
+    Net_OOP.fit(logger=logger, callbacks=callbacks, epochs=FLAGS.epochs, steps_per_epoch=config.steps_per_epoch,
                 val_freq=config.val_freq, val_steps=config.validation_steps, loader=loader)
 
